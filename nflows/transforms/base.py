@@ -229,3 +229,28 @@ class InverseTransform(Transform):
 
     def inverse(self, inputs, context=None):
         return self._transform(inputs, context)
+
+class RecordingTransform(Transform):
+    """Wraps another transform and records intermediate layer outputs during forward pass."""
+    def __init__(self, transform):
+        super().__init__()
+        self._transform = transform
+        self.layer_outputs = []
+
+    def forward(self, inputs, context=None):
+        # Clear any old activations
+        self.layer_outputs = [inputs]
+
+        # Loop through sub-transforms (CompositeTransform holds them)
+        x = inputs
+        total_logabsdet = 0
+
+        for t in self._transform._transforms:
+            x, logabsdet = t(x, context=context)
+            self.layer_outputs.append(x)
+            total_logabsdet = total_logabsdet + logabsdet
+
+        return x, total_logabsdet
+
+    def inverse(self, inputs, context=None):
+        return self._transform.inverse(inputs, context)
